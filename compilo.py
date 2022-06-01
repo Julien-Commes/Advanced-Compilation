@@ -26,7 +26,6 @@ op2asm = {"+" : "add rax, rbx","-" : "sub rax, rbx"}
 def pp_variables(vars):
     return ", ".join([t.value for t in vars.children])
 
-
 def pp_expr(expr):
     if expr.data in {"variable", "nombre"}:
         return expr.children[0].value
@@ -59,7 +58,6 @@ def pp_expr(expr):
     else:
         raise Exception("Not implemented")
 
-
 def pp_cmd(cmd):
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
@@ -77,7 +75,6 @@ def pp_cmd(cmd):
         return f"{element}={valeur};"
     else:
         raise Exception("Not implemented")
-
 
 def pp_bloc(bloc):
     return "\n".join([pp_cmd(t) for t in bloc.children])
@@ -119,31 +116,6 @@ def var_list(ast):
     for c in ast.children:
         s.update(var_list(c))
     return s
-
-# if __name__ == "__main__":
-#     prg = grammaire.parse("""
-#     f1 (V){
-#         V=V+1;
-#         return (V);
-#     }
-    
-#     main(X,Y) {
-#     pX = &X;
-#     X = *pX;
-
-#     T=new int[5+f1(Y)];
-#     T[1]=2;
-#     X=T[X+1];
-#     X='abc';
-#     Y='';
-#     while(X){
-#         X=f1(Z+1,X);
-#         X=f2();
-#         Z=3;
-#         X = X - 1; Y = Y+1;
-#     }
-#     return(Y+1);}""")
-#     print(pp_prg(prg))
 
 ############################################### COMPILE ###############################################################################
 
@@ -191,7 +163,6 @@ def compile_cmd(cmd):
     else:
         raise Exception("Not implemented")
 
-
 def compile_bloc(bloc):
     return "\n".join([compile_cmd(t) for t in bloc.children])
 
@@ -201,9 +172,22 @@ def compile_vars(ast):
         s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
     return s
 
-prg = grammaire.parse("""main(X,Y) {
-pX = &X;
-Y = *pX;
-return(Y);}""")
-print(compile(prg))
+############################################### Execution ###############################################################################
 
+import sys
+import os
+
+def main(usage, C_file):
+    with open(C_file) as f:
+        code = f.read()
+        prg = grammaire.parse(code)
+    if usage == "pp":
+        print(pp_prg(prg))
+    elif usage == "cp":
+        print(compile(prg))
+        os.system('nasm -f elf64 prgm.asm')
+        os.system('gcc -o prgm prgm.o -no-pie -fno-pie')
+
+if __name__ == '__main__':
+    [usage, C_file] = sys.argv[1:]
+    sys.exit(main(usage, C_file))
