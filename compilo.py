@@ -113,18 +113,23 @@ def var_list(ast):
             return set()
     s = set()
     for c in ast.children:
-        s.update(var_list(c))
+        if (isinstance(c, lark.Tree) and c.data=="call_function"):
+            for a in c.children[1:]:
+                s.update(var_list(a))
+        else:
+            s.update(var_list(c))
     return s
 
 if __name__ == "__main__":
     prg = grammaire.parse("""    
-    main(X,Y) {
-    while(X){
-        Z=3;
-        X = X - 1; 
-        Y = Y+1;
+    f1(V){
+        X=8;
+        return (5);
     }
-    return(Y+1);}""")
+    
+    main(X) {
+        Y=f1(X);
+        return(Y+1);}""")
 
 ############################################### COMPILE ###############################################################################
 
@@ -138,16 +143,23 @@ def compile(prg):
         code = code.replace("BODY", compile_bloc(prg.children[2]))
         code = code.replace("VAR_INIT", compile_vars(prg.children[1]))
     with open("prgm.asm",'w') as f:
-         f.write(code)    
+          f.write(code)    
     return code
 
 def compile_functions(functions):
     return "\n".join([compile_function(x) for x in functions.children])
 
 def compile_function(function):
-    nb_var=len(function.children[1].children)
-    print(nb_var)
-    res=f"{function.children[0]}:\npush rbp\nmov rbp,rsp\nret"
+    ens_var_input=var_list(function.children[1])
+    ens_all_var=var_list(function.children[2])
+    ens_local_var=ens_all_var.difference(ens_var_input)
+    list_var_input=[var.value for var in function.children[1].children]
+    list_local_var=[var for var in ens_local_var]
+    res=f"{function.children[0]}:\npush rbp\nmov rbp,rsp\n"
+    res+=compile_bloc(function.children[2])
+    res+=compile_expr(function.children[3])
+    res+="\n"
+    res+= "mov rsp,rbp\npop rbp\nret"
     return res
 
 def compile_expr(expr):
@@ -163,7 +175,24 @@ def compile_expr(expr):
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
     elif expr.data == "call_function":
-        return "fonction"    
+        return f"call {expr.children[0]}"    
+    else:
+        raise Exception("Not implemented")
+
+def compile_expr_for_function(expr,local_var):
+    if expr.data == "variable":
+        return f"mov rax, [{expr.children[0].value}]"
+    elif expr.data == "nombre":
+        return f"mov rax, {expr.children[0].value}"
+    elif expr.data == "binexpr":
+        e1 = compile_expr(expr.children[0])
+        e2 = compile_expr(expr.children[2])
+        op = expr.children[1].value
+        return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
+    elif expr.data == "parenexpr":
+        return compile_expr(expr.children[0])
+    elif expr.data == "call_function":
+        return f"call {expr.children[0]}"    
     else:
         raise Exception("Not implemented")
 
@@ -171,7 +200,7 @@ def compile_cmd(cmd):
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1])
-        return f"{rhs}\nmov [{lhs}], rax;"
+        return f"{rhs}\nmov [{lhs}], rax"
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0])
         b = compile_bloc(cmd.children[1])
