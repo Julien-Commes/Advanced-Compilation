@@ -161,6 +161,10 @@ def compile_expr(expr):
         return f"mov rax, [{expr.children[0].value}]"
     elif expr.data == "nombre":
         return f"mov rax, {expr.children[0].value}"
+    elif expr.data == "str" :
+        return f"mov rax, {expr.children[0].value}"
+    elif expr.data == "empty_str" :
+        return f"mov rax, ''"
     elif expr.data == "binexpr":
         e1 = compile_expr(expr.children[0])
         e2 = compile_expr(expr.children[2])
