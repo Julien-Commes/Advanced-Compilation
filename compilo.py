@@ -2,7 +2,7 @@ import lark
 
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
-expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl 
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "&" IDENTIFIANT -> call_pointeur
 cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignement_tableau
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
@@ -52,6 +52,10 @@ def pp_expr(expr):
         return(f"new {pp_tableau(expr.children[0])}")
     elif expr.data=="elt":
         return(pp_element(expr.children[0]))
+    elif expr.data=="call_value":
+        return(f"*{expr.children[0].value}")
+    elif expr.data=="call_pointeur":
+        return(f"&{expr.children[0].value}")
     else:
         raise Exception("Not implemented")
 
@@ -118,16 +122,15 @@ def var_list(ast):
 
 if __name__ == "__main__":
     prg = grammaire.parse("""
-f1 (V){
-        V=V+1;
-        return (V);
-    }
     f1 (V){
         V=V+1;
         return (V);
     }
     
     main(X,Y) {
+    pX = &X;
+    X = *pX;
+
     T=new int[5+f1(Y)];
     T[1]=2;
     X=T[X+1];
