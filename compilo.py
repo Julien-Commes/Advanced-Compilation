@@ -2,12 +2,15 @@ import lark
 
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
-expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg
-cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl 
+cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignement_tableau
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
 functions : function*
 function : IDENTIFIANT "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
+string : /[a-zA-Z0-9][a-zA-Z0-9]*/
+tableau : "int" "[" expr "]"
+element : IDENTIFIANT "[" expr "]"  
 NUMBER : /[0-9]+/
 OP : /[+\*>-]/
 IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
@@ -40,9 +43,15 @@ def pp_expr(expr):
         return f"{nom} ({vars})"
     elif expr.data == "call_function_no_arg":
         nom = expr.children[0]
-
         return f"{nom} ()"
-
+    elif expr.data=="str":
+        return(pp_string(expr.children[0]))
+    elif expr.data=="empty_str":
+        return "''"
+    elif expr.data=="tbl":
+        return(f"new {pp_tableau(expr.children[0])}")
+    elif expr.data=="elt":
+        return(pp_element(expr.children[0]))
     else:
         raise Exception("Not implemented")
 
@@ -58,6 +67,10 @@ def pp_cmd(cmd):
         e = pp_expr(cmd.children[0])
         b = pp_bloc(cmd.children[1])
         return f"{cmd.data} ({e}) {{ {b}}}"
+    elif cmd.data=="assignement_tableau":
+        element=pp_element(cmd.children[0])
+        valeur=pp_expr(cmd.children[1])
+        return f"{element}={valeur};"
     else:
         raise Exception("Not implemented")
 
@@ -72,8 +85,18 @@ def pp_function(f):
     ret = pp_expr(f.children[3])
     return f"{nom} ({vars}){{ {bloc} return ({ret});}}"
 
+def pp_string(s):
+    nom = s.children[0]
+    return f"'{nom}'"
 
+def pp_tableau(T):
+    taille=pp_expr(T.children[0])
+    return f"int [{taille}]"
 
+def pp_element(e):
+    nom=e.children[0]
+    indice=pp_expr(e.children[1])
+    return f"{nom}[{indice}]"
 
 def pp_prg(prog):
     functions="\n\n".join([pp_function(f) for f in prog.children[0].children])
@@ -105,6 +128,11 @@ f1 (V){
     }
     
     main(X,Y) {
+    T=new int[5+f1(Y)];
+    T[1]=2;
+    X=T[X+1];
+    X='abc';
+    Y='';
     while(X){
         X=f1(Z+1,X);
         X=f2();
@@ -113,10 +141,6 @@ f1 (V){
     }
     return(Y+1);}""")
     print(pp_prg(prg))
-
-
-
-
 
 ############################################### COMPILE ###############################################################################
 
