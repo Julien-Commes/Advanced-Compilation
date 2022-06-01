@@ -120,30 +120,30 @@ def var_list(ast):
         s.update(var_list(c))
     return s
 
-if __name__ == "__main__":
-    prg = grammaire.parse("""
-    f1 (V){
-        V=V+1;
-        return (V);
-    }
+# if __name__ == "__main__":
+#     prg = grammaire.parse("""
+#     f1 (V){
+#         V=V+1;
+#         return (V);
+#     }
     
-    main(X,Y) {
-    pX = &X;
-    X = *pX;
+#     main(X,Y) {
+#     pX = &X;
+#     X = *pX;
 
-    T=new int[5+f1(Y)];
-    T[1]=2;
-    X=T[X+1];
-    X='abc';
-    Y='';
-    while(X){
-        X=f1(Z+1,X);
-        X=f2();
-        Z=3;
-        X = X - 1; Y = Y+1;
-    }
-    return(Y+1);}""")
-    print(pp_prg(prg))
+#     T=new int[5+f1(Y)];
+#     T[1]=2;
+#     X=T[X+1];
+#     X='abc';
+#     Y='';
+#     while(X){
+#         X=f1(Z+1,X);
+#         X=f2();
+#         Z=3;
+#         X = X - 1; Y = Y+1;
+#     }
+#     return(Y+1);}""")
+#     print(pp_prg(prg))
 
 ############################################### COMPILE ###############################################################################
 
@@ -152,9 +152,9 @@ def compile(prg):
         code = f.read()
         vars_decl =  "\n".join([f"{x} : dq 0" for x in var_list(prg)])
         code = code.replace("VAR_DECL", vars_decl)
-        code = code.replace("RETURN", compile_expr(prg.children[2]))
-        code = code.replace("BODY", compile_bloc(prg.children[1]))
-        code = code.replace("VAR_INIT", compile_vars(prg.children[0]))
+        code = code.replace("VAR_INIT", compile_vars(prg.children[1]))
+        code = code.replace("BODY", compile_bloc(prg.children[2]))
+        code = code.replace("RETURN", compile_expr(prg.children[3]))
     with open("prgm.asm",'w') as f:
         f.write(code)    
     return code
@@ -171,6 +171,10 @@ def compile_expr(expr):
         return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
+    elif expr.data == "call_value":
+        return f"mov rbx, [{expr.children[0].value}]\nmov rax, [rbx]"
+    elif expr.data == "call_pointeur":
+        return f"mov rax, {expr.children[0].value}"
     else:
         raise Exception("Not implemented")
 
@@ -197,6 +201,9 @@ def compile_vars(ast):
         s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
     return s
 
-
-
+prg = grammaire.parse("""main(X,Y) {
+pX = &X;
+Y = *pX;
+return(Y);}""")
+print(compile(prg))
 
