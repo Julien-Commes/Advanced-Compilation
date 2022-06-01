@@ -120,30 +120,30 @@ def var_list(ast):
         s.update(var_list(c))
     return s
 
-if __name__ == "__main__":
-    prg = grammaire.parse("""
-    f1 (V){
-        V=V+1;
-        return (V);
-    }
+# if __name__ == "__main__":
+#     prg = grammaire.parse("""
+#     f1 (V){
+#         V=V+1;
+#         return (V);
+#     }
     
-    main(X,Y) {
-    pX = &X;
-    X = *pX;
+#     main(X,Y) {
+#     pX = &X;
+#     X = *pX;
 
-    T=new int[5+f1(Y)];
-    T[1]=2;
-    X=T[X+1];
-    X='abc';
-    Y='';
-    while(X){
-        X=f1(Z+1,X);
-        X=f2();
-        Z=3;
-        X = X - 1; Y = Y+1;
-    }
-    return(Y+1);}""")
-    print(pp_prg(prg))
+#     T=new int[5+f1(Y)];
+#     T[1]=2;
+#     X=T[X+1];
+#     X='abc';
+#     Y='';
+#     while(X){
+#         X=f1(Z+1,X);
+#         X=f2();
+#         Z=3;
+#         X = X - 1; Y = Y+1;
+#     }
+#     return(Y+1);}""")
+#     print(pp_prg(prg))
 
 ############################################### COMPILE ###############################################################################
 
@@ -168,9 +168,13 @@ def compile_expr(expr):
         e1 = compile_expr(expr.children[0])
         e2 = compile_expr(expr.children[2])
         op = expr.children[1].value
-        return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
+        return f"{e2}\npush rax\n{e1}\npop rbx\nadd rax,rbx"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
+    # elif expr.data == "call_value":
+    #     return
+    # elif expr.data == "call_pointeur":
+    #     return
     else:
         raise Exception("Not implemented")
 
@@ -197,6 +201,10 @@ def compile_vars(ast):
         s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
     return s
 
-
-
+prg = grammaire.parse("""main(X,Y) {
+while(X){
+    X = X - 1; Y = Y+1;
+}
+return(Y+1);}""")
+print(compile(prg))
 
