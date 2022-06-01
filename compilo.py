@@ -3,7 +3,7 @@ import lark
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
 expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl 
-cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignement_tableau
+cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignment_tableau
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
 functions : function*
@@ -67,7 +67,7 @@ def pp_cmd(cmd):
         e = pp_expr(cmd.children[0])
         b = pp_bloc(cmd.children[1])
         return f"{cmd.data} ({e}) {{ {b}}}"
-    elif cmd.data=="assignement_tableau":
+    elif cmd.data=="assignment_tableau":
         element=pp_element(cmd.children[0])
         valeur=pp_expr(cmd.children[1])
         return f"{element}={valeur};"
@@ -118,28 +118,11 @@ def var_list(ast):
 
 if __name__ == "__main__":
     prg = grammaire.parse("""
-f1 (V){
-        V=V+1;
-        return (V);
-    }
-    f1 (V){
-        V=V+1;
-        return (V);
-    }
-    
     main(X,Y) {
-    T=new int[5+f1(Y)];
-    T[1]=2;
-    X=T[X+1];
-    X='abc';
-    Y='';
-    while(X){
-        X=f1(Z+1,X);
-        X=f2();
-        Z=3;
-        X = X - 1; Y = Y+1;
-    }
-    return(Y+1);}""")
+    T=new int[5];
+    T[3] = 5;
+    Z=T[3];
+    return(Z);}""")
     print(pp_prg(prg))
 
 ############################################### COMPILE ###############################################################################
@@ -149,9 +132,9 @@ def compile(prg):
         code = f.read()
         vars_decl =  "\n".join([f"{x} : dq 0" for x in var_list(prg)])
         code = code.replace("VAR_DECL", vars_decl)
-        code = code.replace("RETURN", compile_expr(prg.children[2]))
-        code = code.replace("BODY", compile_bloc(prg.children[1]))
-        code = code.replace("VAR_INIT", compile_vars(prg.children[0]))
+        code = code.replace("RETURN", compile_expr(prg.children[3]))
+        code = code.replace("BODY", compile_bloc(prg.children[2]))
+        code = code.replace("VAR_INIT", compile_vars(prg.children[1]))
     with open("prgm.asm",'w') as f:
         f.write(code)    
     return code
@@ -168,6 +151,16 @@ def compile_expr(expr):
         return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
+    elif expr.data == "tbl":
+        tbl = expr.children[0]
+        len = compile_expr(tbl.children[0])
+        return f"{len}\nmov rdi,rax\ncall malloc"
+    elif expr.data == "elt":
+        elt = expr.children[0]
+        name = elt.children[0].value
+        i = compile_expr(elt.children[1])
+        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        return f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
     else:
         raise Exception("Not implemented")
 
@@ -175,12 +168,20 @@ def compile_cmd(cmd):
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1])
-        return f"{rhs}\nmov [{lhs}], rax;"
+        return f"{rhs}\nmov [{lhs}], rax"
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0])
         b = compile_bloc(cmd.children[1])
         index = next(cpt)
         return f"debut{index}:\n{e}\ncmp rax, 0\njz fin{index}\n{b}\njmp debut{index}\nfin{index}:\n"
+    elif cmd.data == "assignment_tableau":
+        elt = cmd.children[0]
+        name = elt.children[0].value
+        i = compile_expr(elt.children[1])
+        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
+        rhs = compile_expr(cmd.children[1])
+        return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
     else:
         raise Exception("Not implemented")
 
@@ -194,6 +195,4 @@ def compile_vars(ast):
         s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
     return s
 
-
-
-
+print(compile(prg))
