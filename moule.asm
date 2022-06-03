@@ -5,6 +5,8 @@ fmt: db "%d", 10, 0
 VAR_DECL
 
 section .text
+FUNCTIONS
+
 main:
   push rbp
   mov rbp, rsp
