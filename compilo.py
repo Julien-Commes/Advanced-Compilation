@@ -121,16 +121,6 @@ def var_list(ast):
             s.update(var_list(c))
     return s
 
-if __name__ == "__main__":
-    prg = grammaire.parse("""    
-    f1(V,D){
-        V=V+D;
-        return (V);
-    }
-    
-    main(X,D) {
-        Y=f1(X,D);
-        return(Y);}""")
 
 ############################################### COMPILE ###############################################################################
 
@@ -229,7 +219,6 @@ def compile_expr_for_function(expr,local_var,global_var):
         raise Exception("Not implemented")
 
 def compile_cmd_for_function(cmd,local_var,global_var):
-    print(cmd.data)
     if cmd.data == "assignment":
         if (cmd.children[0].value in local_var):
             lhs = f"rbp-{local_var.index(cmd.children[0].value)*8+8}"
@@ -251,6 +240,14 @@ def compile_bloc_for_function(bloc,local_var,global_var):
     return "\n".join([compile_cmd_for_function(t,local_var,global_var) for t in bloc.children])
 
 
-
-
-print(compile(prg))
+if __name__ == "__main__":
+    prg = grammaire.parse("""    
+    f1(V,D){
+        X=V+D;
+        return (X);
+    }
+    
+    main(X,D) {
+        Y=f1(X,D);
+        return(Y);}""")
+    compile(prg)
