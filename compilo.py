@@ -118,12 +118,16 @@ def var_list(ast):
 
 if __name__ == "__main__":
     prg = grammaire.parse("""
-    main(X,Y) {
+    main(Z,T) {
     T=new int[5];
-    T[3] = 5;
-    Z=T[3];
+    T[0]=2;
+    T[1]=3;
+    T[4]=T[1]-T[0];
+    T2=new int[2];
+    T2[0]=1;
+    T2[1]=T2[0];
+    Z=T[4]+T2[1];
     return(Z);}""")
-    print(pp_prg(prg))
 
 ############################################### COMPILE ###############################################################################
 
@@ -154,7 +158,8 @@ def compile_expr(expr):
     elif expr.data == "tbl":
         tbl = expr.children[0]
         len = compile_expr(tbl.children[0])
-        return f"{len}\nmov rdi,rax\ncall malloc"
+        len_bin = f"{len}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
     elif expr.data == "elt":
         elt = expr.children[0]
         name = elt.children[0].value
@@ -179,7 +184,7 @@ def compile_cmd(cmd):
         name = elt.children[0].value
         i = compile_expr(elt.children[1])
         i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
-        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
+        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, rbx"
         rhs = compile_expr(cmd.children[1])
         return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
     else:
@@ -192,7 +197,8 @@ def compile_bloc(bloc):
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
-        s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
+        s += f"mov rbx, [rbp-0x10]\nlea rdi,[rbx-{8*(i+1)}]\ncall atoi\
+            \nmov [{ast.children[i].value}],rax\n"
     return s
 
 print(compile(prg))
