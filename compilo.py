@@ -69,7 +69,7 @@ def pp_cmd(cmd):
         e = pp_expr(cmd.children[0])
         b = pp_bloc(cmd.children[1])
         return f"{cmd.data} ({e}) {{ {b}}}"
-    elif cmd.data=="assignement_tableau":
+    elif cmd.data=="assignment_tableau":
         element=pp_element(cmd.children[0])
         valeur=pp_expr(cmd.children[1])
         return f"{element}={valeur};"
@@ -117,6 +117,7 @@ def var_list(ast):
         s.update(var_list(c))
     return s
 
+  
 ############################################### COMPILE ###############################################################################
 
 def compile(prg):
@@ -143,6 +144,17 @@ def compile_expr(expr):
         return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
+    elif expr.data == "tbl":
+        tbl = expr.children[0]
+        len = compile_expr(tbl.children[0])
+        len_bin = f"{len}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
+    elif expr.data == "elt":
+        elt = expr.children[0]
+        name = elt.children[0].value
+        i = compile_expr(elt.children[1])
+        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        return f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
     elif expr.data == "call_value":
         return f"mov rbx, [{expr.children[0].value}]\nmov rax, [rbx]"
     elif expr.data == "call_pointeur":
@@ -154,12 +166,20 @@ def compile_cmd(cmd):
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1])
-        return f"{rhs}\nmov [{lhs}], rax;"
+        return f"{rhs}\nmov [{lhs}], rax"
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0])
         b = compile_bloc(cmd.children[1])
         index = next(cpt)
         return f"debut{index}:\n{e}\ncmp rax, 0\njz fin{index}\n{b}\njmp debut{index}\nfin{index}:\n"
+    elif cmd.data == "assignment_tableau":
+        elt = cmd.children[0]
+        name = elt.children[0].value
+        i = compile_expr(elt.children[1])
+        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, rbx"
+        rhs = compile_expr(cmd.children[1])
+        return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
     else:
         raise Exception("Not implemented")
 
@@ -169,8 +189,10 @@ def compile_bloc(bloc):
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
-        s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
+        s += f"mov rbx, [rbp-0x10]\nlea rdi,[rbx-{8*(i+1)}]\ncall atoi\
+            \nmov [{ast.children[i].value}],rax\n"
     return s
+
 
 ############################################### Execution ###############################################################################
 
