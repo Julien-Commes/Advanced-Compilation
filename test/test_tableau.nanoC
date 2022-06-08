@@ -1,6 +1,6 @@
-main(N) {
+main(N,X) {
     T = new int[N];
-    T[0] = 5;
-    T[1] = 2;
-    return(T[0] + T[1]);
+    T[0] = N;
+    T[N-1] = X;
+    return(T[0] + T[N-1]);
 }
