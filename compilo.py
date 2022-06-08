@@ -219,7 +219,7 @@ def compile_bloc(bloc):
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
-        s += f"mov rbx, [rbp-0x10]\nlea rdi,[rbx-{8*(i+1)}]\ncall atoi\
+        s += f"mov rbx, [rbp-0x10]\nmov rdi,[rbx+{8*(i+1)}]\ncall atoi\
             \nmov [{ast.children[i].value}],rax\n"
     return s
 
