@@ -2,17 +2,10 @@
 
 ## Equipe
 
-- Félix JOSQUIN
-- Léo SEGUIN
-- Julien COMMES
-- Enzo DAMION
-
-## Features
-
-- fonctions
-- tableaux
-- string
-- pointeurs
+- Félix JOSQUIN : fonctions
+- Léo SEGUIN : tableaux
+- Julien COMMES : string
+- Enzo DAMION : pointeurs
 
 ## Structure du dossier
 
