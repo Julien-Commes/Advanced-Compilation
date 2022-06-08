@@ -2,8 +2,8 @@ import lark
 
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
-expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "&" IDENTIFIANT -> call_pointeur
-cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignement_tableau
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | IDENTIFIANT ".length" -> length_tableau | "*" IDENTIFIANT -> call_value | "&" IDENTIFIANT -> call_pointeur
+cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignment_tableau | IDENTIFIANT "=" "new" tableau ";" -> creation_tableau
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
 functions : function*
@@ -144,17 +144,15 @@ def compile_expr(expr):
         return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
-    elif expr.data == "tbl":
-        tbl = expr.children[0]
-        len = compile_expr(tbl.children[0])
-        len_bin = f"{len}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
-        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
     elif expr.data == "elt":
         elt = expr.children[0]
         name = elt.children[0].value
         i = compile_expr(elt.children[1])
-        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        i_bin = f"{i}\npush rax\nmov rax, 1\npop rbx\nadd rax, rbx\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx" # i+1
         return f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
+    elif expr.data == "length_tableau":
+        name = expr.children[0].value
+        return f"mov rax, [{name}]"
     elif expr.data == "call_value":
         return f"mov rbx, [{expr.children[0].value}]\nmov rax, [rbx]"
     elif expr.data == "call_pointeur":
@@ -176,10 +174,16 @@ def compile_cmd(cmd):
         elt = cmd.children[0]
         name = elt.children[0].value
         i = compile_expr(elt.children[1])
-        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
-        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, rbx"
+        i_bin = f"{i}\npush rax\nmov rax, 1\npop rbx\nadd rax, rbx\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx" #i+1
+        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rax, rbx"
         rhs = compile_expr(cmd.children[1])
         return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
+    elif cmd.data == "creation_tableau":
+        name = cmd.children[0].value
+        tbl = cmd.children[1]
+        length = compile_expr(tbl.children[0])
+        len_bin = f"{length}\npush rax\nmov rax, 1\npop rbx\nadd rax, rbx\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx" #len+1
+        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc\nmov [{name}], rax\n{length}\nmov [{name}], rax"
     else:
         raise Exception("Not implemented")
 
@@ -189,7 +193,7 @@ def compile_bloc(bloc):
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
-        s += f"mov rbx, [rbp-0x10]\nlea rdi,[rbx-{8*(i+1)}]\ncall atoi\
+        s += f"mov rbx, [rbp-0x10]\nmov rdi,[rbx+{8*(i+1)}]\ncall atoi\
             \nmov [{ast.children[i].value}],rax\n"
     return s
 
