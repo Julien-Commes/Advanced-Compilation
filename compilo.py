@@ -5,8 +5,8 @@ import os
 
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
-expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "&" IDENTIFIANT -> call_pointeur
-cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignment_tableau
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "**" IDENTIFIANT -> call_call_value | "&" IDENTIFIANT -> call_pointeur
+cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignment_tableau | "*" IDENTIFIANT "=" expr ";" -> assignment_pointeur
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
 functions : function*
@@ -56,6 +56,8 @@ def pp_expr(expr):
         return(pp_element(expr.children[0]))
     elif expr.data=="call_value":
         return(f"*{expr.children[0].value}")
+    elif expr.data=="call_call_value":
+        return(f"**{expr.children[0].value}")
     elif expr.data=="call_pointeur":
         return(f"&{expr.children[0].value}")
     else:
@@ -76,6 +78,10 @@ def pp_cmd(cmd):
         element=pp_element(cmd.children[0])
         valeur=pp_expr(cmd.children[1])
         return f"{element}={valeur};"
+    elif cmd.data=="assignment_pointeur":
+        lhs = cmd.children[0].value
+        rhs = pp_expr(cmd.children[1])
+        return f"*{lhs} = {rhs};"
     else:
         raise Exception("Not implemented")
 
@@ -107,7 +113,7 @@ def pp_prg(prog):
     vars = pp_variables(prog.children[1])
     bloc = pp_bloc(prog.children[2])
     ret = pp_expr(prog.children[3])
-    return f"{functions}\n\nmain ({vars}){{ {bloc} return ({ret});}}"
+    return f"{functions}\n\nmain ({vars}){{\n{bloc} \nreturn ({ret});}}"
 
 def var_list(ast):
     if isinstance(ast, lark.Token):
@@ -187,6 +193,8 @@ def compile_expr(expr):
         return f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
     elif expr.data == "call_value":
         return f"mov rbx, [{expr.children[0].value}]\nmov rax, [rbx]"
+    elif expr.data == "call_call_value":
+        return compile_expr_for_double_pointeur(expr.children[0].value)
     elif expr.data == "call_pointeur":
         return f"mov rax, {expr.children[0].value}"
     else:
@@ -223,7 +231,16 @@ def compile_vars(ast):
             \nmov [{ast.children[i].value}],rax\n"
     return s
 
+######################### compile in pointeur #########################
+
+def compile_expr_for_double_pointeur(value):
+    l1=f"mov rax, [{value}]"
+    l2=f"mov rbx, [rax]"
+    l3=f"mov rax, [rbx]"
+    return l1+"\n"+l2+"\n"+l3
+
 ######################### compile in function #########################
+
 def compile_expr_for_function(expr,local_var,global_var):
     if expr.data == "variable":
         if (expr.children[0].value in local_var):

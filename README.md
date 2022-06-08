@@ -24,3 +24,23 @@ Pour le compilateur :
 
     python3 compile.py cp ./test/test?.nanoC
     ./prgm var1 var2 ...
+
+## Features
+
+### Fonctions
+
+### Tableaux
+
+### String
+
+### Pointeurs
+
+Opérationels :
+
+- pointeurs simples
+- doubles pointeurs
+
+Non-opérationels :
+
+- malloc
+- écrire un pointeur
