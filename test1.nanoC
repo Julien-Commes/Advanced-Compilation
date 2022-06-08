@@ -1,5 +1,10 @@
-main(X,Y) {
-    pX = &X;
-    Y = *pX;
+f1(X){
+    V=4;
+    X=5+X;
+    return(X);
+}
+
+main(V) {
+    Y=f1(1);
     return(Y);
 }

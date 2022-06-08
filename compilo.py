@@ -132,7 +132,7 @@ def compile(prg):
     with open("moule.asm") as f:
         code = f.read()
         vars_decl =  "\n".join([f"{x} : dq 0" for x in var_list(prg.children[2])|var_list(prg.children[1])])
-
+        code = code.replace("VAR_DECL", vars_decl)
         code = code.replace("FUNCTIONS", compile_functions(prg.children[0]))
         code = code.replace("RETURN", compile_expr(prg.children[3]))
         code = code.replace("BODY", compile_bloc(prg.children[2]))
@@ -176,8 +176,8 @@ def compile_expr(expr):
         return  push_arg+call_function+pop_arg
     elif expr.data == "tbl":
         tbl = expr.children[0]
-        len = compile_expr(tbl.children[0])
-        len_bin = f"{len}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        lenght = compile_expr(tbl.children[0])
+        len_bin = f"{lenght}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
         return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
     elif expr.data == "elt":
         elt = expr.children[0]
