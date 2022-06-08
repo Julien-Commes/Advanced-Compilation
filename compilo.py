@@ -1,9 +1,11 @@
 from operator import indexOf
 import lark
+import sys
+import os
 
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
-expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl 
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "&" IDENTIFIANT -> call_pointeur
 cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignement_tableau
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
@@ -26,7 +28,6 @@ op2asm = {"+" : "add rax, rbx","-" : "sub rax, rbx"}
 
 def pp_variables(vars):
     return ", ".join([t.value for t in vars.children])
-
 
 def pp_expr(expr):
     if expr.data in {"variable", "nombre"}:
@@ -53,9 +54,12 @@ def pp_expr(expr):
         return(f"new {pp_tableau(expr.children[0])}")
     elif expr.data=="elt":
         return(pp_element(expr.children[0]))
+    elif expr.data=="call_value":
+        return(f"*{expr.children[0].value}")
+    elif expr.data=="call_pointeur":
+        return(f"&{expr.children[0].value}")
     else:
         raise Exception("Not implemented")
-
 
 def pp_cmd(cmd):
     if cmd.data == "assignment":
@@ -68,13 +72,12 @@ def pp_cmd(cmd):
         e = pp_expr(cmd.children[0])
         b = pp_bloc(cmd.children[1])
         return f"{cmd.data} ({e}) {{ {b}}}"
-    elif cmd.data=="assignement_tableau":
+    elif cmd.data=="assignment_tableau":
         element=pp_element(cmd.children[0])
         valeur=pp_expr(cmd.children[1])
         return f"{element}={valeur};"
     else:
         raise Exception("Not implemented")
-
 
 def pp_bloc(bloc):
     return "\n".join([pp_cmd(t) for t in bloc.children])
@@ -122,17 +125,19 @@ def var_list(ast):
     return s
 
 
+
 ############################################### COMPILE ###############################################################################
 
 def compile(prg):
     with open("moule.asm") as f:
         code = f.read()
         vars_decl =  "\n".join([f"{x} : dq 0" for x in var_list(prg.children[2])|var_list(prg.children[1])])
-        code = code.replace("VAR_DECL", vars_decl)
+
         code = code.replace("FUNCTIONS", compile_functions(prg.children[0]))
         code = code.replace("RETURN", compile_expr(prg.children[3]))
         code = code.replace("BODY", compile_bloc(prg.children[2]))
         code = code.replace("VAR_INIT", compile_vars(prg.children[1]))
+
     with open("prgm.asm",'w') as f:
           f.write(code)    
     return code
@@ -169,6 +174,21 @@ def compile_expr(expr):
         call_function=f"call {expr.children[0]}"
         pop_arg=f"\nadd rsp,{8*(len(expr.children)-1)}"
         return  push_arg+call_function+pop_arg
+    elif expr.data == "tbl":
+        tbl = expr.children[0]
+        len = compile_expr(tbl.children[0])
+        len_bin = f"{len}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
+    elif expr.data == "elt":
+        elt = expr.children[0]
+        name = elt.children[0].value
+        i = compile_expr(elt.children[1])
+        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        return f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
+    elif expr.data == "call_value":
+        return f"mov rbx, [{expr.children[0].value}]\nmov rax, [rbx]"
+    elif expr.data == "call_pointeur":
+        return f"mov rax, {expr.children[0].value}"
     else:
         raise Exception("Not implemented")
 
@@ -182,9 +202,16 @@ def compile_cmd(cmd):
         b = compile_bloc(cmd.children[1])
         index = next(cpt)
         return f"debut{index}:\n{e}\ncmp rax, 0\njz fin{index}\n{b}\njmp debut{index}\nfin{index}:\n"
+    elif cmd.data == "assignment_tableau":
+        elt = cmd.children[0]
+        name = elt.children[0].value
+        i = compile_expr(elt.children[1])
+        i_bin = f"{i}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
+        lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, rbx"
+        rhs = compile_expr(cmd.children[1])
+        return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
     else:
         raise Exception("Not implemented")
-
 
 def compile_bloc(bloc):
     return "\n".join([compile_cmd(t) for t in bloc.children])
@@ -192,7 +219,8 @@ def compile_bloc(bloc):
 def compile_vars(ast):
     s = ""
     for i in range(len(ast.children)):
-        s+= f"mov rbx, [rbp-0x10]\nmov rdi, [rbx+{8*(i+1)}]\ncall atoi\nmov [{ast.children[i].value}], rax\n"
+        s += f"mov rbx, [rbp-0x10]\nlea rdi,[rbx-{8*(i+1)}]\ncall atoi\
+            \nmov [{ast.children[i].value}],rax\n"
     return s
 
 ######################### compile in function #########################
@@ -218,6 +246,7 @@ def compile_expr_for_function(expr,local_var,global_var):
     else:
         raise Exception("Not implemented")
 
+
 def compile_cmd_for_function(cmd,local_var,global_var):
     if cmd.data == "assignment":
         if (cmd.children[0].value in local_var):
@@ -238,16 +267,20 @@ def compile_cmd_for_function(cmd,local_var,global_var):
 
 def compile_bloc_for_function(bloc,local_var,global_var):
     return "\n".join([compile_cmd_for_function(t,local_var,global_var) for t in bloc.children])
+############################################### Execution ###############################################################################
 
 
-if __name__ == "__main__":
-    prg = grammaire.parse("""    
-    f1(V,D){
-        X=V+D;
-        return (X);
-    }
-    
-    main(X,D) {
-        Y=f1(X,D);
-        return(Y);}""")
-    compile(prg)
+def main(usage, C_file):
+    with open(C_file) as f:
+        code = f.read()
+        prg = grammaire.parse(code)
+    if usage == "pp":
+        print(pp_prg(prg))
+    elif usage == "cp":
+        print(compile(prg))
+        os.system('nasm -f elf64 prgm.asm')
+        os.system('gcc -o prgm prgm.o -no-pie -fno-pie')
+
+if __name__ == '__main__':
+    [usage, C_file] = sys.argv[1:]
+    sys.exit(main(usage, C_file))
