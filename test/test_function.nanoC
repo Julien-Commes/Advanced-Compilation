@@ -1,0 +1,14 @@
+f1(X){
+    V=4;
+    Z=V+X;
+    return(Z);
+}
+f2(F){
+    return(F-3);
+}
+
+main(V) {
+    Y=f1(V);
+    X=f2(Y);
+    return(X);
+}
