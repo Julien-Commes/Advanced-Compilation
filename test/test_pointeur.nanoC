@@ -1,5 +1,6 @@
-main(X,Y) {
-    pX = &X;
-    Y = *pX;
+main(X) {
+    Y=1;
+    pX=&X;
+    Y=Y+*pX;
     return(Y);
 }
