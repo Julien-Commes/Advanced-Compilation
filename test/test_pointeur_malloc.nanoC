@@ -1,0 +1,4 @@
+main(X) {
+    p = malloc(X);    
+    return(p);
+}
