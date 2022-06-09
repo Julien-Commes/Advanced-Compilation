@@ -22,7 +22,7 @@ IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
 """, start = "prog")
 
 cpt = iter(range(10000))
-op2asm = {"+" : "add rax, rbx","-" : "sub rax, rbx"}
+op2asm = {"+" : "add rax, rbx", "-" : "sub rax, rbx", "*" : "imul rax, rbx"}
 
 ################################.children[0].value########## Pretty Printer ##############################################################
 
@@ -42,10 +42,10 @@ def pp_expr(expr):
     elif expr.data == "call_function":
         nom = expr.children[0]
         vars = ", ".join([pp_expr(ex) for ex in expr.children[1:]])
-        return f"{nom} ({vars})"
+        return f"{nom}({vars})"
     elif expr.data == "call_function_no_arg":
         nom = expr.children[0]
-        return f"{nom} ()"
+        return f"{nom}()"
     elif expr.data=="str":
         return(pp_string(expr.children[0]))
     elif expr.data=="empty_str":
@@ -71,11 +71,11 @@ def pp_cmd(cmd):
         rhs = pp_expr(cmd.children[1])
         return f"{lhs} = {rhs};"
     elif cmd.data == "printf":
-        return f"printf( {pp_expr(cmd.children[0])} );"
+        return f"printf({pp_expr(cmd.children[0])});"
     elif cmd.data in {"while", "if"}:
         e = pp_expr(cmd.children[0])
         b = pp_bloc(cmd.children[1])
-        return f"{cmd.data} ({e}) {{ {b}}}"
+        return f"{cmd.data}({e}) {{\n{b}\n}}"
     elif cmd.data=="assignment_tableau":
         element=pp_element(cmd.children[0])
         valeur=pp_expr(cmd.children[1])
@@ -95,7 +95,7 @@ def pp_function(f):
     vars = pp_variables(f.children[1])
     bloc = pp_bloc(f.children[2])
     ret = pp_expr(f.children[3])
-    return f"{nom} ({vars}){{ {bloc} return ({ret});}}"
+    return f"{nom}({vars}) {{\n{bloc}\nreturn({ret});\n}}"
 
 def pp_string(s):
     nom = s.children[0]
@@ -103,7 +103,7 @@ def pp_string(s):
 
 def pp_tableau(T):
     taille=pp_expr(T.children[0])
-    return f"int [{taille}]"
+    return f"int[{taille}]"
 
 def pp_element(e):
     nom=e.children[0]
@@ -115,7 +115,7 @@ def pp_prg(prog):
     vars = pp_variables(prog.children[1])
     bloc = pp_bloc(prog.children[2])
     ret = pp_expr(prog.children[3])
-    return f"{functions}\n\nmain ({vars}) {{\n{bloc} \nreturn ({ret});}}"
+    return f"{functions}\n\nmain({vars}) {{\n{bloc}\nreturn({ret});\n}}"
 
 def var_list(ast):
     if isinstance(ast, lark.Token):
@@ -147,7 +147,7 @@ def compile(prg):
         code = code.replace("VAR_INIT", compile_vars(prg.children[1]))
 
     with open("prgm.asm",'w') as f:
-          f.write(code)    
+        f.write(code)    
     return code
 
 def compile_functions(functions):
@@ -186,7 +186,7 @@ def compile_expr(expr):
         tbl = expr.children[0]
         lenght = compile_expr(tbl.children[0])
         len_bin = f"{lenght}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
-        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
+        return f"{len_bin}\nmov rdi, rax\ncall malloc"
     elif expr.data == "elt":
         elt = expr.children[0]
         name = elt.children[0].value
@@ -239,7 +239,7 @@ def compile_vars(ast):
             \nmov [{ast.children[i].value}],rax\n"
     return s
 
-######################### compile in pointeur #########################
+########################################## COMPILE IN POINTEURS ###############################################################################
 
 def compile_expr_for_double_pointeur(value):
     l1=f"mov rax, [{value}]"
@@ -247,7 +247,7 @@ def compile_expr_for_double_pointeur(value):
     l3=f"mov rax, [rbx]"
     return l1+"\n"+l2+"\n"+l3
 
-######################### compile in function #########################
+########################################## COMPILE IN FUNCTIONS ###############################################################################
 
 def compile_expr_for_function(expr,local_var,global_var):
     if expr.data == "variable":
@@ -271,7 +271,6 @@ def compile_expr_for_function(expr,local_var,global_var):
     else:
         raise Exception("Not implemented")
 
-
 def compile_cmd_for_function(cmd,local_var,global_var):
     if cmd.data == "assignment":
         if (cmd.children[0].value in local_var):
@@ -292,8 +291,10 @@ def compile_cmd_for_function(cmd,local_var,global_var):
 
 def compile_bloc_for_function(bloc,local_var,global_var):
     return "\n".join([compile_cmd_for_function(t,local_var,global_var) for t in bloc.children])
-############################################### Execution ###############################################################################
 
+
+
+############################################### EXECUTE ###############################################################################
 
 def main(usage, C_file):
     with open(C_file) as f:
