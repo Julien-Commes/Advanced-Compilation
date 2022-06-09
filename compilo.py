@@ -257,7 +257,7 @@ def compile_expr_for_function(expr,local_var,global_var):
         e1 = compile_expr_for_function(expr.children[0],local_var,global_var)
         e2 = compile_expr_for_function(expr.children[2],local_var,global_var)
         op = expr.children[1].value
-        return f"{e1}\npush rax\n{e2}\npop rbx\n{op2asm[op]}"
+        return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
     elif expr.data == "parenexpr":
         return compile_expr_for_function(expr.children[0],local_var,global_var)
     elif expr.data == "call_function":
