@@ -178,7 +178,7 @@ def compile_expr(expr):
         tbl = expr.children[0]
         lenght = compile_expr(tbl.children[0])
         len_bin = f"{lenght}\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx"
-        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc"
+        return f"{len_bin}\nmov rdi, rax\ncall malloc"
     elif expr.data == "elt":
         elt = expr.children[0]
         name = elt.children[0].value
