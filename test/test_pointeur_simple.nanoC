@@ -1,0 +1,7 @@
+main(X) {
+    p1=&X;
+    X=X+1;
+    X1=*p1;
+    
+    return(X1);
+}

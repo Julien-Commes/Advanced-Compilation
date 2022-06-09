@@ -5,7 +5,7 @@ import os
 
 grammaire = lark.Lark("""
 variables : IDENTIFIANT (","  IDENTIFIANT)*
-expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "**" IDENTIFIANT -> call_call_value | "&" IDENTIFIANT -> call_pointeur
+expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(" expr ")" -> parenexpr | IDENTIFIANT "(" (expr ",")* expr ")" -> call_function | IDENTIFIANT "(" ")" -> call_function_no_arg | "'" string "'" -> str | "'" "'" -> empty_str | element -> elt | "new" tableau -> tbl | "*" IDENTIFIANT -> call_value | "**" IDENTIFIANT -> call_call_value | "&" IDENTIFIANT -> call_pointeur | "malloc" "(" expr ")" -> malloc
 cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignment_tableau | "*" IDENTIFIANT "=" expr ";" -> assignment_pointeur
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
@@ -24,7 +24,7 @@ IDENTIFIANT : /[a-zA-Z][a-zA-Z0-9]*/
 cpt = iter(range(10000))
 op2asm = {"+" : "add rax, rbx","-" : "sub rax, rbx"}
 
-########################################## Pretty Printer ##############################################################
+################################.children[0].value########## Pretty Printer ##############################################################
 
 def pp_variables(vars):
     return ", ".join([t.value for t in vars.children])
@@ -60,6 +60,8 @@ def pp_expr(expr):
         return(f"**{expr.children[0].value}")
     elif expr.data=="call_pointeur":
         return(f"&{expr.children[0].value}")
+    elif expr.data == "malloc":
+        return f"malloc( {pp_expr(expr.children[0])} );"
     else:
         raise Exception("Not implemented")
 
@@ -113,7 +115,7 @@ def pp_prg(prog):
     vars = pp_variables(prog.children[1])
     bloc = pp_bloc(prog.children[2])
     ret = pp_expr(prog.children[3])
-    return f"{functions}\n\nmain ({vars}){{\n{bloc} \nreturn ({ret});}}"
+    return f"{functions}\n\nmain ({vars}) {{\n{bloc} \nreturn ({ret});}}"
 
 def var_list(ast):
     if isinstance(ast, lark.Token):
@@ -197,6 +199,8 @@ def compile_expr(expr):
         return compile_expr_for_double_pointeur(expr.children[0].value)
     elif expr.data == "call_pointeur":
         return f"mov rax, {expr.children[0].value}"
+    elif expr.data == "malloc":
+        return f"mov edi, {expr.children[0].value}\nextern malloc\ncall malloc"
     else:
         raise Exception("Not implemented")
 
@@ -218,7 +222,11 @@ def compile_cmd(cmd):
         lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, rbx"
         rhs = compile_expr(cmd.children[1])
         return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
-    else:
+    elif cmd.data == "assignment_pointeur":
+        lhs = cmd.children[0].value
+        rhs = compile_expr(cmd.children[1])
+        return f"mov [Y], 2"
+    else: 
         raise Exception("Not implemented")
 
 def compile_bloc(bloc):
@@ -294,7 +302,7 @@ def main(usage, C_file):
     if usage == "pp":
         print(pp_prg(prg))
     elif usage == "cp":
-        print(compile(prg))
+        compile(prg)
         os.system('nasm -f elf64 prgm.asm')
         os.system('gcc -o prgm prgm.o -no-pie -fno-pie')
 

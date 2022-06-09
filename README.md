@@ -43,4 +43,4 @@ Opérationels :
 Non-opérationels :
 
 - malloc
-- écrire un pointeur
+- écrire sur l'adresse d'un pointeur

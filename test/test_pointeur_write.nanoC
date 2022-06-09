@@ -1,0 +1,8 @@
+main(X) {
+    Z=1;
+    Y=&Z;
+    *Y=X;
+    Z=Z+1;
+
+    return(Z);
+}

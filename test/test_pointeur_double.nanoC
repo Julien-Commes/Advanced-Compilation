@@ -1,9 +1,8 @@
 main(X) {
     p1=&X;
     p2=&p1;
-    X1=*p1;
+    X=X+1;
     X2=**p2;
-    
-    *p1=3;
-    return(X);
+
+    return(X2);
 }

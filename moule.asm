@@ -1,4 +1,4 @@
-extern printf, atoi
+extern printf, atoi, malloc
 global main
 section .data
 fmt: db "%d", 10, 0
