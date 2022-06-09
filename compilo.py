@@ -148,7 +148,7 @@ def compile_expr(expr):
         elt = expr.children[0]
         name = elt.children[0].value
         i = compile_expr(elt.children[1])
-        i_bin = f"{i}\npush rax\nmov rax, 1\npop rbx\nadd rax, rbx\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx" # i+1
+        i_bin = f"{i}\nadd rax, 1\nimul rax, 8" # i+1
         return f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rbx, rax\nmov rax, [rbx]"
     elif expr.data == "length_tableau":
         name = expr.children[0].value
@@ -174,7 +174,7 @@ def compile_cmd(cmd):
         elt = cmd.children[0]
         name = elt.children[0].value
         i = compile_expr(elt.children[1])
-        i_bin = f"{i}\npush rax\nmov rax, 1\npop rbx\nadd rax, rbx\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx" #i+1
+        i_bin = f"{i}\nadd rax, 1\nimul rax, 8" #i+1
         lhs = f"{i_bin}\npush rax\nmov rax, {name}\npop rbx\nadd rax, rbx"
         rhs = compile_expr(cmd.children[1])
         return f"{lhs}\npush rax\n{rhs}\npop rbx\nmov [rbx], rax"
@@ -182,8 +182,8 @@ def compile_cmd(cmd):
         name = cmd.children[0].value
         tbl = cmd.children[1]
         length = compile_expr(tbl.children[0])
-        len_bin = f"{length}\npush rax\nmov rax, 1\npop rbx\nadd rax, rbx\npush rax\nmov rax, 8\npop rbx\nimul rax, rbx" #len+1
-        return f"{len_bin}\nmov rdi, rax\nextern malloc\ncall malloc\nmov [{name}], rax\n{length}\nmov [{name}], rax"
+        len_bin = f"{length}\nadd rax, 1\nimul rax, 8" #len+1
+        return f"{len_bin}\nmov rdi, rax\ncall malloc\nmov [{name}], rax\n{length}\nmov [{name}], rax"
     else:
         raise Exception("Not implemented")
 

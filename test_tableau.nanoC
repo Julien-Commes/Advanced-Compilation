@@ -1,5 +1,4 @@
-main(N) {
-N=4;
+main(N,k) {
     T = new int[N+1];
     T[0] = 0;
     T[1] = 1;
@@ -8,5 +7,5 @@ N=4;
     	T[i] = T[i-1] + T[i-2];
     	i = i+1;
     }
-    return (T[2]);
+    return (T[k]);
 }
