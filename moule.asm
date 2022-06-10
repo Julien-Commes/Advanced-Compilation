@@ -2,6 +2,7 @@ extern printf, atoi, malloc
 global main
 section .data
 fmt: db "%d", 10, 0
+fmt: db "%s", 10, 0
 VAR_DECL
 
 section .text

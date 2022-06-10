@@ -193,6 +193,8 @@ def compile_expr(expr):
         return f"{e2}\npush rax\n{e1}\npop rbx\n{op2asm[op]}"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
+    elif expr.data == "str" :
+        return f"mov rdi, 8\ncall malloc\nmov rbx,'{expr.children[0].children[0].value}'"
     elif expr.data == "call_function":
         push_arg="\n".join([compile_expr(expr.children[i])+"\npush rax" for i in range(len(expr.children)-1,0,-1)])+"\n"
         call_function=f"call {expr.children[0]}"
@@ -225,9 +227,14 @@ def compile_expr(expr):
 
 def compile_cmd(cmd):
     if cmd.data == "assignment":
-        lhs = cmd.children[0].value
-        rhs = compile_expr(cmd.children[1])
-        return f"{rhs}\nmov [{lhs}], rax"
+        if cmd.children[1].data == "str":
+            lhs = cmd.children[0].value
+            rhs = compile_expr(cmd.children[1])
+            return f"{rhs}\nmov [rax], rbx\npush rax\nmov rdi, rax\ncall strlen\nmov rcx, rax\npop rax\nmov [{lhs}], rax\nmov rbx, [fmts]\nmov [fmt], rbx"
+        else :
+            lhs = cmd.children[0].value
+            rhs = compile_expr(cmd.children[1])
+            return f"{rhs}\nmov [{lhs}], rax"
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0])
         b = compile_bloc(cmd.children[1])
