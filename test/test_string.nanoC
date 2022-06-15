@@ -1,4 +1,5 @@
-main(X){
-    X='aaa';
+main(X,Y){
+    X='ceci est un test ';
+    X=X+'qui additionne des str';
     return(X);
 }

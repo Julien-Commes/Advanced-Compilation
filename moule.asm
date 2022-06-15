@@ -1,8 +1,8 @@
-extern printf, atoi, malloc
+extern printf, atoi, malloc, strlen
 global main
 section .data
 fmt: db "%d", 10, 0
-fmt: db "%s", 10, 0
+fmts: db "%s", 10, 0
 VAR_DECL
 
 section .text
