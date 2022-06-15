@@ -1,14 +1,13 @@
 f1(X){
-    V=4;
-    Z=V+X;
+    Z=f2(X);
     return(Z);
 }
-f2(F){
-    return(F-3);
+f2(Z){
+    X=Z+1;
+    return(X);
 }
 
-main(V) {
-    Y=f1(V);
-    X=f2(Y);
-    return(X);
+main(X) {
+   X=f1(X);
+   return (X);
 }

@@ -27,11 +27,7 @@ Pour le compilateur :
 
 ## Features
 
-### Fonctions
-
-### Tableaux
-
-### String
+Les features n'ont pas été testées pour être interfonctionnelles.
 
 ### Pointeurs
 

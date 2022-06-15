@@ -9,7 +9,7 @@ expr : IDENTIFIANT -> variable | NUMBER -> nombre | expr OP expr -> binexpr | "(
 cmd : IDENTIFIANT "=" expr ";"-> assignment|"while" "(" expr ")" "{" bloc "}" -> while | "if" "(" expr ")" "{" bloc "}" -> if | "printf" "(" expr ")" ";"-> printf | element "=" expr ";" -> assignment_tableau | "*" IDENTIFIANT "=" expr ";" -> assignment_pointeur
 bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
-functions : function*
+functions : (function* function_no_arg*)*
 function : IDENTIFIANT "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
 string : /[a-zA-Z0-9 ][a-zA-Z0-9 ]*/
 tableau : "int" "[" expr "]"
@@ -125,7 +125,7 @@ def var_list(ast):
             return set()
     s = set()
     for c in ast.children:
-        if (isinstance(c, lark.Tree) and c.data=="call_function"):
+        if (isinstance(c, lark.Tree) and (c.data=="call_function" or c.data=="call_function_no_arg")):
             for a in c.children[1:]:
                 s.update(var_list(a))
         else:
@@ -151,7 +151,22 @@ def compile(prg):
     return code
 
 def compile_functions(functions):
-    return "\n".join([compile_function(x) for x in functions.children])
+    res=[]
+    for x in functions.children:
+        if x.data=="function":
+            res.append(compile_function(x))
+        if x.data=="function_no_arg":
+            res.append(compile_function_no_arg(x))
+    return "\n".join(res)
+            
+def compile_function_no_arg(function):
+    ens_local_var=var_list(function.children[1])
+    list_local_var=[var for var in ens_local_var]
+    res=f"{function.children[0]}:\npush rbp\nmov rbp,rsp\n"
+    res+=compile_bloc_for_function(function.children[1],list_local_var,[])+"\n"
+    res+=compile_expr_for_function(function.children[2],list_local_var,[])+"\n"
+    res+= "mov rsp,rbp\npop rbp\nret"
+    return res
 
 def compile_function(function):
     ens_var_input=var_list(function.children[1])
@@ -202,6 +217,9 @@ def compile_expr(expr):
         call_function=f"call {expr.children[0]}"
         pop_arg=f"\nadd rsp,{8*(len(expr.children)-1)}"
         return  push_arg+call_function+pop_arg
+    elif expr.data == "call_function_no_arg":
+        call_function=f"call {expr.children[0]}"
+        return  call_function   
     elif expr.data == "tbl":
         tbl = expr.children[0]
         lenght = compile_expr(tbl.children[0])
@@ -292,7 +310,13 @@ def compile_expr_for_function(expr,local_var,global_var):
     elif expr.data == "parenexpr":
         return compile_expr_for_function(expr.children[0],local_var,global_var)
     elif expr.data == "call_function":
-        return f"call {expr.children[0]}"    
+        push_arg="\n".join([compile_expr(expr.children[i])+"\npush rax" for i in range(len(expr.children)-1,0,-1)])+"\n"
+        call_function=f"call {expr.children[0]}"
+        pop_arg=f"\nadd rsp,{8*(len(expr.children)-1)}"
+        return  push_arg+call_function+pop_arg
+    elif expr.data == "call_function_no_arg":
+        call_function=f"call {expr.children[0]}"
+        return  call_function   
     else:
         raise Exception("Not implemented")
 
@@ -307,8 +331,8 @@ def compile_cmd_for_function(cmd,local_var,global_var):
         rhs = compile_expr_for_function(cmd.children[1],local_var,global_var)
         return f"{rhs}\nmov [{lhs}], rax"
     # elif cmd.data == "while":
-    #     e = compile_expr(cmd.children[0])
-    #     b = compile_bloc(cmd.children[1])
+    #     e = compile_expr_for_function(cmd.children[0],local_var,global_var)
+    #     b = compile_bloc_for_function(cmd.children[1],local_var,global_var)
     #     index = next(cpt)
     #     return f"debut{index}:\n{e}\ncmp rax, 0\njz fin{index}\n{b}\njmp debut{index}\nfin{index}:\n"
     else:
