@@ -11,8 +11,7 @@ bloc : (cmd)*
 prog : functions "main" "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
 functions : (function* function_no_arg*)*
 function : IDENTIFIANT "(" variables ")" "{" bloc "return" "(" expr ")" ";" "}"
-function_no_arg: IDENTIFIANT "(" ")" "{" bloc "return" "(" expr ")" ";" "}"
-string : /[a-zA-Z0-9][a-zA-Z0-9]*/
+string : /[a-zA-Z0-9 ][a-zA-Z0-9 ]*/
 tableau : "int" "[" expr "]"
 element : IDENTIFIANT "[" expr "]"  
 NUMBER : /[0-9]+/
@@ -183,10 +182,21 @@ def compile_function(function):
 
 def compile_expr(expr):
     if expr.data == "variable":
-        return f"mov rax, [{expr.children[0].value}]"
+        return f"mov rax, [{expr.children[0].value}]\n"
     elif expr.data == "nombre":
         return f"mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
+        if expr.children[2].data=="str":
+            n_str=expr.children[2].children[0].children[0].value
+            ex="push rcx\n"
+            while len(n_str)//8>0:
+                ex+=f"pop rcx\npush rax\nadd rax, rcx\nmov rbx, '{n_str[0:8]}'\nmov [rax], rbx\nsub rax, rcx\nmov rdi, rax\ncall strlen\nmov rcx ,rax\npop rax\npush rcx\n"
+                n_str=n_str[8:]
+            if len(n_str)>0:
+                ex+=f"pop rcx\npush rax\nadd rax, rcx\nmov rbx, '{n_str}'\nmov [rax], rbx\nsub rax, rcx\nmov rdi, rax\ncall strlen\nmov rcx ,rax\npop rax"
+            e1 = compile_expr(expr.children[0])
+            e1+=ex
+            return e1  
         e1 = compile_expr(expr.children[0])
         e2 = compile_expr(expr.children[2])
         op = expr.children[1].value
@@ -194,7 +204,14 @@ def compile_expr(expr):
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
     elif expr.data == "str" :
-        return f"mov rdi, 8\ncall malloc\nmov rbx,'{expr.children[0].children[0].value}'"
+        n_str=expr.children[0].children[0].value
+        ex="mov rcx, 0\npush rcx\nmov rdi, 64\ncall malloc\n"
+        while len(n_str)//8>0:
+            ex+=f"pop rcx\npush rax\nadd rax, rcx\nmov rbx, '{n_str[0:8]}'\nmov [rax], rbx\nsub rax, rcx\nmov rdi, rax\ncall strlen\nmov rcx ,rax\npop rax\npush rcx\n"
+            n_str=n_str[8:]
+        if len(n_str)>0:
+            ex+=f"pop rcx\npush rax\nadd rax, rcx\nmov rbx, '{n_str}'\nmov [rax], rbx\nsub rax, rcx\nmov rdi, rax\ncall strlen\nmov rcx ,rax\npop rax"                   
+        return ex
     elif expr.data == "call_function":
         push_arg="\n".join([compile_expr(expr.children[i])+"\npush rax" for i in range(len(expr.children)-1,0,-1)])+"\n"
         call_function=f"call {expr.children[0]}"
@@ -230,7 +247,7 @@ def compile_cmd(cmd):
         if cmd.children[1].data == "str":
             lhs = cmd.children[0].value
             rhs = compile_expr(cmd.children[1])
-            return f"{rhs}\nmov [rax], rbx\npush rax\nmov rdi, rax\ncall strlen\nmov rcx, rax\npop rax\nmov [{lhs}], rax\nmov rbx, [fmts]\nmov [fmt], rbx"
+            return f"{rhs}\nmov [{lhs}], rax\nmov rbx, [fmts]\nmov [fmt], rbx\nmov rax, [{lhs}]"
         else :
             lhs = cmd.children[0].value
             rhs = compile_expr(cmd.children[1])
