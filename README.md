@@ -40,3 +40,17 @@ Non-opérationels :
 
 - malloc
 - écrire sur l'adresse d'un pointeur
+
+### Strings
+
+Opérationels :
+
+- affectation valeur str à une variable
+- somme d'une variable contenant un str avec un str
+
+Non-opérationels :
+
+- taille de la chaîne (rcx contient la taille de la chaîne à retourner mais la fonction len() n'est pas implémenté dans le compilo)
+- opération entre deux variables contenant des str
+
+Remarque : Le compilo ne gère pas bien les manipulations de variables différentes dans le même main 
